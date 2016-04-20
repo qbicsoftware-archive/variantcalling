@@ -57,14 +57,22 @@ for name in os.listdir(DATA):
         continue
     if name.lower().endswith('.bam'):
         if not name.endswith('.bam'):
-            print("Extension fastq is case sensitive.", file=sys.stderr)
+            print("Extension bam and bam.bai is case sensitive.", file=sys.stderr)
             exit(1)
-        INPUT_FILES.append(os.path.basename(name)[:-6])
+        #INPUT_FILES.append(os.path.basename(name)[:-len('.bam')])
+        INPUT_FILES.append(os.path.basename(name))
+    elif name.lower().endswith('bam.bai'):
+        if not name.endswith('bam.bai'):
+            print("Extension bam and bam.bai is case sensitive.", file=sys.stderr)
+            exit(1)
+        #INPUT_FILES.append(os.path.basename(name)[:-len('.bam.bai')])
+        INPUT_FILES.append(os.path.basename(name))
     elif name.lower().endswith('.bam.gz'):
         if not name.endswith('.bam.gz'):
             print("Extension bam is case sensitive.", file=sys.stderr)
             exit(1)
-        INPUT_FILES.append(os.path.basename(name)[:-len('.bam.gz')])
+        #INPUT_FILES.append(os.path.basename(name)[:-len('.bam.gz')])
+        INPUT_FILES.append(os.path.basename(name))
     else:
         print("Unknown data file: %s" % name, file=sys.stderr)
         exit(1)
@@ -75,6 +83,7 @@ if len(set(INPUT_FILES)) != len(INPUT_FILES):
 
 OUTPUT_FILES = []
 OUTPUT_FILES.append("checksums.ok")
+OUTPUT_FILES.append(result("variants_merged_sorted.vcf"))
 
 rule all:
     input: OUTPUT_FILES
