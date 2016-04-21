@@ -19,6 +19,9 @@ module load qbic/stampy
 module load qbic/picard/git
 module load bio/gatk/3.3
 module load qbic/freebayes/0.9
+module load qbic/vcflib
+module load qbic/bcftools
+module load qbic/vcftools
 
 {exec_job}
 exit 0
