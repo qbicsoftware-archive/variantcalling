@@ -101,6 +101,29 @@ rule checksums:
         else:
             shell("touch %s" % out)
 
+rule sam_to_bam:
+    input: "{name}.unsorted.sam"
+    output: "{name}.unsorted.bam"
+    shell: "samtools view -Sb {input} -o {output}"
+
+
+rule sam_sort:
+    input: "{file}.unsorted.bam"
+    output: "{file}.sorted.bam"
+    shell: "samtools sort -O bam -T $(mktemp) -o {output} {input}"
+
+rule sam_index:
+    input: "{file}.sorted.bam"
+    output: "{file}.sorted.bam.bai"
+    run:
+        shell("samtools index {input}")
+
+rule sam_index_unsorted:
+    input: "{file}.unsorted.bam"
+    output: "{file}.unsorted.bam.bai"
+    run:
+        shell("samtools index {input}")
+
 #variant calling preparation
 rule left_align:
     input: bam=data("{name}.bam"), \
@@ -112,7 +135,8 @@ rule left_align:
 
 
 rule re_align_intervals:
-    input: bam="left_align/{name}.unsorted.bam"
+    input: bam="left_align/{name}.unsorted.bam", \
+           bai="left_align/{name}.unsorted.bam.bai"
     output: "left_align/{name}.intervals"
     run:
         shell(("java -jar %s/GenomeAnalysisTK.jar "  # TODO Lite
@@ -141,22 +165,16 @@ rule re_align:
 
 
 rule clip_overlap:
-    input: bam="realigned/{name}.unsorted.bam"
+    input: bam="realigned/{name}.unsorted.bam", \
+           bai="realigned/{name}.unsorted.bam.bai"
     output: "clipped/{name}.unsorted.bam"
     run:
         shell("BamClipOverlap -in {input.bam} -out {output}")
 
-##index new bam file
-rule merge_sam_index:
-    input:  "clipped/{name}.unsorted.bam"
-    output: "clipped/{name}.unsorted.bam.bai"
-    run:
-        shell("samtools index {input}")
-
 ## create basic variant calls ,here with freebayes
 rule freebayes:
-    input: bam="clipped/{name}.unsorted.bam", \
-           bai="clipped/{name}.unsorted.bam.bai" 
+    input: bam="clipped/{name}.sorted.bam", \
+           bai="clipped/{name}.sorted.bam.bai" 
     output: "vcf_base/{name}_merged_base.vcf"
     run:
         fasta = ref(config['params']['fasta'])
