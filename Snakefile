@@ -101,10 +101,65 @@ rule checksums:
         else:
             shell("touch %s" % out)
 
-## create basic variant calls ,here with freebayes
-rule freebayes:
+#variant calling preparation
+rule left_align:
     input: bam=data("aligned.bam"), \
            bai=data("aligned.bam.bai") 
+    output: "left_align/{name}.unsorted.bam"
+    run:
+        shell("BamLeftAlign -in {input.bam} -out {output} -ref %s.fa"
+               % ref(config['params']['fasta']))
+
+
+rule re_align_intervals:
+    input: bam="left_align/{name}.unsorted.bam", \
+           bai="left_align/{name}.unsorted.bam.bai"
+    output: "left_align/{name}.intervals"
+    run:
+        shell(("java -jar %s/GenomeAnalysisTK.jar "  # TODO Lite
+               "-T RealignerTargetCreator "
+               "-I {input.bam} "
+               "-R %s.fa "
+               "-o {output}")
+              % (os.environ['GATK_JARS'],
+                 ref(config['params']['fasta'])))
+        #"--intervals {config['intervals']}")
+
+
+rule re_align:
+    input: bam="left_align/{name}.unsorted.bam", \
+           bai="left_align/{name}.unsorted.bam.bai", \
+           intervals="left_align/{name}.intervals"
+    output: "realigned/{name}.unsorted.bam"
+    run:
+        shell(("java -jar %s/GenomeAnalysisTK.jar "  # TODO Lite
+               "-T IndelRealigner "
+               "-I {input.bam} "
+               "-R %s.fa "
+               "--targetIntervals {input.intervals} "
+               "-o {output}")
+              % (os.environ['GATK_JARS'],
+                 ref(config['params']['fasta'])))
+
+
+rule clip_overlap:
+    input: bam="realigned/{name}.unsorted.bam", \
+           bai="realigned/{name}.unsorted.bam.bai"
+    output: "clipped/{name}.unsorted.bam"
+    run:
+        shell("BamClipOverlap -in {input.bam} -out {output}")
+
+##index new bam file
+rule merge_sam_index:
+    input:  "clipped/{name}.unsorted.bam"
+    output: "clipped/{name}.unsorted.bam.bai"
+    run:
+        shell("samtools index {input}")
+
+## create basic variant calls ,here with freebayes
+rule freebayes:
+    input: bam="clipped/{name}.unsorted.bam" \
+           bai="clipped/{name}.unsorted.bam.bai" 
     output: "vcf_base/merged_base.vcf"
     run:
         fasta = ref(config['params']['fasta'])
